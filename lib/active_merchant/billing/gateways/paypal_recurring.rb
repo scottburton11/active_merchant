@@ -28,7 +28,7 @@ module ActiveMerchant #:nodoc:
     class PaypalGateway < Gateway
 
       # I invented the :suspend action, and this doesn't appear in payflow.rb
-      RECURRING_ACTIONS = Set.new([:add, :cancel, :inquiry, :suspend])
+      RECURRING_ACTIONS = Set.new([:add, :cancel, :inquiry, :suspend, :modify])
 
       @@API_VERSION = '50.0' # not sure if this overrides the variable in PaypalCommonAPI
 
@@ -47,6 +47,13 @@ module ActiveMerchant #:nodoc:
           add_credit_card(xml, credit_card, options[:billing_address], options) if credit_card
         end
         commit('CreateRecurringPaymentsProfile', request)
+      end
+
+      def modify_recurring(money, credit_card, options={})
+        request = build_recurring_request(:modify, money, options) do |xml|
+          add_credit_card(xml, credit_card, options[:billing_address], options) if credit_card
+        end
+        commit('UpdateRecurringPaymentsProfile', request)
       end
 
       # cancels an existing recurring profile
@@ -95,17 +102,17 @@ module ActiveMerchant #:nodoc:
 
                 xml.tag! ns2 + 'ScheduleDetails' do
                   xml.tag! ns2 + 'Description', options[:comment]
-
+                  
+                  frequency, period = get_pay_period(options) 
                   unless options[:initial_payment].nil?
                     xml.tag! ns2 + 'TrialPeriod' do
-                      xml.tag! ns2 + 'BillingPeriod', 'Month'
-                      xml.tag! ns2 + 'BillingFrequency', 1
+                      xml.tag! ns2 + 'BillingPeriod', period
+                      xml.tag! ns2 + 'BillingFrequency', frequency.to_s
                       xml.tag! ns2 + 'TotalBillingCycles', 1
                       xml.tag! ns2 + 'Amount', amount(options[:initial_payment]), 'currencyID' => options[:currency] || currency(options[:initial_payment])
                     end
                   end
 
-                  frequency, period = get_pay_period(options)
                   xml.tag! ns2 + 'PaymentPeriod' do
                     xml.tag! ns2 + 'BillingPeriod', period
                     xml.tag! ns2 + 'BillingFrequency', frequency.to_s
@@ -115,6 +122,49 @@ module ActiveMerchant #:nodoc:
 
                   xml.tag! ns2 + 'AutoBillOutstandingAmount', 'AddToNextBilling'
                 end
+              end
+            end
+          end
+        elsif [:modify].include?(action)
+          xml.tag! "UpdateRecurringPaymentsProfileReq", 'xmlns' => PAYPAL_NAMESPACE do
+            xml.tag! "UpdateRecurringPaymentsProfileRequest", 'xmlns:n2' => EBAY_NAMESPACE do
+              xml.tag! ns2 + "Version", @@API_VERSION
+              xml.tag! ns2 + "UpdateRecurringPaymentsProfileRequestDetails" do
+                
+                #credit card information goes here
+                yield xml
+                
+                xml.tag! "ProfileID", options[:profile_id]
+                xml.tag! ns2 + 'Description', options[:comment]
+                                
+                unless options[:starting_at].nil?
+                  xml.tag! ns2 + 'BillingStartDate', options[:starting_at]
+                end
+                
+                unless options[:periodicity].nil?
+                  xml.tag! ns2 + "BillingPeriodDetails" do
+                    frequency, period = get_pay_period(options)
+                    unless options[:initial_payment].nil?
+                      xml.tag! ns2 + 'TrialPeriod' do
+                        xml.tag! ns2 + 'BillingPeriod', period
+                        xml.tag! ns2 + 'BillingFrequency', frequency.to_s
+                        xml.tag! ns2 + 'TotalBillingCycles', 1
+                        xml.tag! ns2 + 'Amount', amount(options[:initial_payment]), 'currencyID' => options[:currency] || currency(options[:initial_payment])
+                      end
+                    end
+
+                    xml.tag! ns2 + 'PaymentPeriod' do
+                      xml.tag! ns2 + 'BillingPeriod', period
+                      xml.tag! ns2 + 'BillingFrequency', frequency.to_s
+                      xml.tag! ns2 + 'TotalBillingCycles', options[:payments] unless options[:payments].nil? || options[:payments] == 0
+                      xml.tag! ns2 + 'Amount', amount(money), 'currencyID' => options[:currency] || currency(money)
+                    end
+                  end
+                else
+                  xml.tag! ns2 + 'Amount', amount(money), 'currencyID' => options[:currency] || currency(money)
+                end
+                
+                xml.tag! ns2 + "AutoBillOutstandingAmount", "AddToNextBilling"
               end
             end
           end
@@ -150,6 +200,7 @@ module ActiveMerchant #:nodoc:
           when :quarterly then [3, 'Month']
           when :semiyearly then [6, 'Month'] # broken! i think
           when :yearly then [1, 'Year']
+          when :daily then [1, 'Day']
         end
       end
     end
