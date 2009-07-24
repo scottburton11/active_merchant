@@ -40,7 +40,11 @@ module ActiveMerchant #:nodoc:
       # * <tt>periodicity</tt> - The frequency that the recurring payments will occur at. Can be one of
       # :bimonthly, :monthly, :biweekly, :weekly, :yearly, :daily, :semimonthly, :quadweekly, :quarterly, :semiyearly
       # * <tt>payments</tt> - The term, or number of payments that will be made
-      # * <tt>comment</tt> - A comment associated with the profile
+      # * <tt>comment</tt> - A comment associated with profile changes
+      # * <tt>description</tt> - A description of the profile
+      # * <tt>initial_payment</tt> - An amount to charge the account on creation; useful for signup fees
+      # * <tt>trial_payment</tt> - An amount to charge for an optional trial period
+      
       def recurring(money, credit_card, options = {})
         options[:name] = credit_card.name if options[:name].blank? && credit_card
         request = build_recurring_request(options[:profile_id] ? :modify : :add, money, options) do |xml|
@@ -101,15 +105,22 @@ module ActiveMerchant #:nodoc:
                 end
 
                 xml.tag! ns2 + 'ScheduleDetails' do
-                  xml.tag! ns2 + 'Description', options[:comment]
+                  xml.tag! ns2 + 'Description', options[:description]
+                  
+                  unless options[:initial_payment].nil?
+                    xml.tag! ns2 + 'ActivationDetails' do
+                      xml.tag! ns2 + 'InitialPayment', amount(options[:initial_payment]), 'currencyID' => options[:currency] || currency(options[:initial_payment])
+                    end
+                  end
                   
                   frequency, period = get_pay_period(options) 
-                  unless options[:initial_payment].nil?
+                  
+                  unless options[:trial_payment].nil?
                     xml.tag! ns2 + 'TrialPeriod' do
                       xml.tag! ns2 + 'BillingPeriod', period
                       xml.tag! ns2 + 'BillingFrequency', frequency.to_s
                       xml.tag! ns2 + 'TotalBillingCycles', 1
-                      xml.tag! ns2 + 'Amount', amount(options[:initial_payment]), 'currencyID' => options[:currency] || currency(options[:initial_payment])
+                      xml.tag! ns2 + 'Amount', amount(options[:trial_payment]), 'currencyID' => options[:currency] || currency(options[:trial_payment])
                     end
                   end
 
@@ -135,21 +146,24 @@ module ActiveMerchant #:nodoc:
                 yield xml
                 
                 xml.tag! "ProfileID", options[:profile_id]
-                xml.tag! ns2 + 'Description', options[:comment]
-                                
+                xml.tag! ns2 + 'Description', options[:description]
+                xml.tag! ns2 + 'Note', options[:comment]
+                
                 unless options[:starting_at].nil?
                   xml.tag! ns2 + 'BillingStartDate', options[:starting_at]
                 end
                 
                 unless options[:periodicity].nil?
                   xml.tag! ns2 + "BillingPeriodDetails" do
+                    
                     frequency, period = get_pay_period(options)
-                    unless options[:initial_payment].nil?
+                    
+                    unless options[:trial_payment].nil?
                       xml.tag! ns2 + 'TrialPeriod' do
                         xml.tag! ns2 + 'BillingPeriod', period
                         xml.tag! ns2 + 'BillingFrequency', frequency.to_s
                         xml.tag! ns2 + 'TotalBillingCycles', 1
-                        xml.tag! ns2 + 'Amount', amount(options[:initial_payment]), 'currencyID' => options[:currency] || currency(options[:initial_payment])
+                        xml.tag! ns2 + 'Amount', amount(options[:trial_payment]), 'currencyID' => options[:currency] || currency(options[:trial_payment])
                       end
                     end
 
