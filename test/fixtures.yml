@@ -53,6 +53,10 @@ exact:
   login: "A00427-01" 
   password: testus
 
+first_pay:
+  login:
+  password:
+
 ideal_ing_postbank:
   login: LOGIN
   password: PASSWORD
@@ -91,6 +95,12 @@ net_registry:
   login: X
   password: Y
   
+ogone:
+  login: LOGIN
+  user: USER
+  password: PASSWORD
+  signature: SIGNATURE
+
 payflow:
   login: LOGIN
   password: PASSWORD
@@ -131,7 +141,7 @@ plugnpay:
   login: LOGIN
   password: PASSWORD
   
-protx:
+sage_pay:
   login: LOGIN
   
 # Working credentials, no need to replace
