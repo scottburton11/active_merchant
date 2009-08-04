@@ -174,10 +174,8 @@ module ActiveMerchant #:nodoc:
                       xml.tag! ns2 + 'Amount', amount(money), 'currencyID' => options[:currency] || currency(money)
                     end
                   end
-                else
-                  xml.tag! ns2 + 'Amount', amount(money), 'currencyID' => options[:currency] || currency(money)
                 end
-                
+                xml.tag! ns2 + 'Amount', amount(money), 'currencyID' => options[:currency] || currency(money)                
                 xml.tag! ns2 + "AutoBillOutstandingAmount", "AddToNextBilling"
               end
             end

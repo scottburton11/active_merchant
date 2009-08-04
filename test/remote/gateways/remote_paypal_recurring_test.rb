@@ -87,7 +87,7 @@ class PaypalRecurringTestExistingProfile < Test::Unit::TestCase
     }
     
     @amount = 1000
-    
+    @updated_amount = 2000
     @profile_response = @gateway.recurring(@amount, @creditcard, @params)
     @profile_id = @profile_response.params["profile_id"]
     @params.merge!(:profile_id => @profile_id)
@@ -98,7 +98,7 @@ class PaypalRecurringTestExistingProfile < Test::Unit::TestCase
   end
   
   def test_successful_modify_recurring_profile
-    response = @gateway.modify_recurring(@amount, @creditcard, @params.merge!(:description => "This is a changed profile", :comment => "Your profile has changed"))
+    response = @gateway.modify_recurring(@updated_amount, @creditcard, @params.merge!(:description => "This is a changed profile", :comment => "Your profile has changed"))
     assert_success response
   end
   
