@@ -54,7 +54,7 @@ class PaypalRecurringTest < Test::Unit::TestCase
   
 end
 
-class PaypalRecurringTestExistingProfile < Test::Unit::TestCase
+class PaypalRecurringExistingProfileTest < Test::Unit::TestCase
   
   def setup
     Base.gateway_mode = :test
@@ -114,7 +114,7 @@ class PaypalRecurringTestExistingProfile < Test::Unit::TestCase
     
 end
 
-class PaypalRecurringTestCancelExistingProfile < Test::Unit::TestCase
+class PaypalRecurringCancelExistingProfileTest < Test::Unit::TestCase
   
   def setup
     Base.gateway_mode = :test
@@ -157,5 +157,69 @@ class PaypalRecurringTestCancelExistingProfile < Test::Unit::TestCase
     response = @gateway.cancel_recurring(@profile_id)
     assert_success response
   end
+    
+end
+
+class PaypalRecurringChangePaymentMethodTest < Test::Unit::TestCase
+  
+  def setup
+    Base.gateway_mode = :test
+    
+    @gateway = PaypalGateway.new(fixtures(:paypal_signature))
+
+    @creditcard = CreditCard.new(
+      :type                => "visa",
+      :number              => "4381258770269608", # Use a generated CC from the paypal Sandbox
+      :verification_value => "000",
+      :month               => 1,
+      :year                => Time.now.year + 1,
+      :first_name          => 'Fred',
+      :last_name           => 'Brooks'
+    )
+    
+    @new_creditcard = CreditCard.new(
+      :type                => "american_express",
+      :number              => "370569057658466", # Use a generated CC from the paypal Sandbox
+      :verification_value => "0000",
+      :month               => 1,
+      :year                => Time.now.year + 1,
+      :first_name          => 'Fred',
+      :last_name           => 'Brooks'
+    )
+       
+    @params = {
+      :email                   => 'buyer@jadedpallet.com',
+      :billing_address         => { :name => 'Fred Brooks',
+                                    :address1 => '1234 Penny Lane',
+                                    :city => 'Jonsetown',
+                                    :state => 'NC',
+                                    :country => 'US',
+                                    :zip => '23456'
+                                  },
+      :description            => 'Your Recurring Subscription Profile',
+      :ip                     => '10.0.0.1',
+      :periodicity            => :monthly,
+      :starting_at            => Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    }
+    
+    @update_payment_method_params = {
+      :periodicity            => :monthly
+    }
+    
+    @amount = 1000
+    @profile_response = @gateway.recurring(@amount, @creditcard, @params)
+    @profile_id = @profile_response.params["profile_id"]
+    @update_payment_method_params.merge!(:profile_id => @profile_id)
+  end
+  
+  def teardown
+    @gateway.cancel_recurring(@profile_id)
+  end
+  
+  def test_successful_change_recurring_payment_method
+    response = @gateway.modify_recurring(nil, @new_creditcard, @update_payment_method_params)
+    assert_success response
+  end
+
     
 end
